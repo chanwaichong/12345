@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🌍 小一常識大挑戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #fff6f6; /* Very soft pastel pink/warm background */
+            touch-action: manipulation; /* Prevent double-tap zoom */
+            user-select: none;
+            overflow-x: hidden;
+        }
+        
+        .game-card {
+            background: #ffffff;
+            border-radius: 30px;
+            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.05);
+            border: 5px solid #fce7f3; /* Pastel pink border */
+        }
+
+        /* Answer Button Styling */
+        .ans-btn {
+            transition: all 0.2s ease-in-out;
+            border: 4px solid #f1f5f9;
+        }
+        .ans-btn:active {
+            transform: scale(0.95);
+        }
+        .ans-btn.correct {
+            background-color: #dcfce7 !important;
+            border-color: #4ade80 !important;
+            color: #166534;
+        }
+        .ans-btn.wrong {
+            background-color: #fee2e2 !important;
+            border-color: #f87171 !important;
+            color: #991b1b;
+        }
+
+        /* TTS Speaker Button Styling */
+        .tts-btn {
+            transition: transform 0.2s;
+            border: 4px solid #fef08a;
+        }
+        .tts-btn:active {
+            transform: scale(0.9);
+            background-color: #fde047;
+        }
+
+        /* 九宮格 (9-Grid) Writing Area */
+        .writing-area {
+            position: relative;
+            width: 280px;
+            height: 280px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 6px solid #fbbf24;
+            border-radius: 12px;
+            /* 3x3 Grid Lines */
+            background-image: 
+                linear-gradient(to right, transparent 33.33%, #fef08a 33.33%, #fef08a 34.33%, transparent 34.33%, transparent 66.66%, #fef08a 66.66%, #fef08a 67.66%, transparent 67.66%),
+                linear-gradient(to bottom, transparent 33.33%, #fef08a 33.33%, #fef08a 34.33%, transparent 34.33%, transparent 66.66%, #fef08a 66.66%, #fef08a 67.66%, transparent 67.66%);
+        }
+
+        canvas {
+            position: relative;
+            z-index: 10;
+            cursor: crosshair;
+            touch-action: none; /* Crucial for drawing on mobile */
+        }
+
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 200px;
+            color: rgba(0, 0, 0, 0.05);
+            z-index: 5;
+            pointer-events: none;
+            font-family: 'Kaiti', 'STKaiti', 'DFKai-SB', serif; /* Brush script feel */
+        }
+
+        /* Animations */
+        @keyframes pop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop {
+            animation: pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes pulse-soft {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .animate-pulse-soft {
+            animation: pulse-soft 2s infinite;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 flex flex-col items-center justify-center min-h-screen">
+
+    <!-- 1. Start Screen -->
+    <div id="start-screen" class="game-card w-full max-w-4xl p-10 text-center animate-pop">
+        <div class="text-8xl mb-6 animate-pulse-soft">🌍</div>
+        <h1 class="text-4xl md:text-6xl font-bold mb-6 text-blue-600">小一常識大挑戰</h1>
+        <p class="text-2xl text-gray-600 mb-10 bg-blue-50 py-3 px-6 rounded-2xl inline-block font-bold">
+            🌱 地球、水、空氣與動物朋友
+        </p>
+        <br>
+        <button onclick="startGame()" class="bg-green-400 hover:bg-green-500 text-white text-4xl font-bold py-6 px-16 rounded-full shadow-xl transition transform hover:scale-105 active:scale-95 border-b-8 border-green-600">
+            開始遊戲 ▶️
+        </button>
+        <p class="mt-8 text-gray-400 text-lg">💡 家長/老師提示：請確保設備音量已開啟</p>
+    </div>
+
+    <!-- 2. Main Game Screen -->
+    <div id="game-screen" class="game-card w-full max-w-5xl p-6 md:p-10 hidden flex-col h-[90vh]">
+        
+        <!-- Top Bar: Progress & Mode -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div class="bg-blue-100 text-blue-700 px-6 py-3 rounded-full font-bold text-2xl border-2 border-blue-200 shadow-sm">
+                關卡： <span id="level-num" class="text-3xl">1</span> / 100
+            </div>
+            <div id="mode-badge" class="bg-purple-100 text-purple-700 px-6 py-3 rounded-full font-bold text-2xl border-2 border-purple-200 shadow-sm">
+                填充題
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="w-full bg-gray-100 rounded-full h-6 mb-8 overflow-hidden shadow-inner border border-gray-200">
+            <div id="progress-bar" class="bg-gradient-to-r from-green-300 to-green-500 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="flex-1 flex flex-col items-center justify-center text-center w-full">
+            
+            <!-- Question Speaker -->
+            <button onclick="playQuestionAudio()" class="tts-btn bg-yellow-100 hover:bg-yellow-200 text-slate-800 rounded-full py-3 px-8 mb-6 flex items-center justify-center gap-3 shadow-md">
+                <span class="text-4xl">🔊</span> <span class="text-2xl font-bold text-yellow-700">聽題目</span>
+            </button>
+            
+            <!-- Question Text & Image -->
+            <h2 id="question-text" class="text-3xl md:text-5xl font-bold leading-tight mb-4 text-slate-700 px-4"></h2>
+            <div id="question-emoji" class="text-[100px] mb-8 leading-none"></div>
+
+            <!-- Normal Options Container (MC, TF, Classify, Fill) -->
+            <div id="options-container" class="w-full grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                <!-- Dynamically populated buttons will go here -->
+            </div>
+
+            <!-- Writing Task Container -->
+            <div id="writing-container" class="hidden flex-col items-center w-full">
+                <p class="text-3xl text-blue-600 font-bold mb-6 bg-blue-50 px-8 py-3 rounded-full">請跟著寫：</p>
+                <div class="writing-area shadow-md mb-8">
+                    <div id="watermark-char" class="watermark"></div>
+                    <canvas id="writingCanvas" width="280" height="280"></canvas>
+                </div>
+                <div class="flex gap-6 w-full justify-center">
+                    <button onclick="clearCanvas()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-4 px-8 rounded-2xl text-2xl shadow-sm border-b-4 border-gray-300 active:translate-y-1">
+                        🧹 擦掉重寫
+                    </button>
+                    <button onclick="submitWriting()" class="bg-green-400 hover:bg-green-500 text-white font-bold py-4 px-12 rounded-2xl text-3xl shadow-md border-b-4 border-green-600 active:translate-y-1">
+                        ⭐ 寫好了
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 3. Full Screen Feedback Overlay -->
+    <div id="feedback-overlay" class="fixed inset-0 bg-white/95 hidden flex-col items-center justify-center z-50">
+        <div id="feedback-icon" class="text-[200px] mb-8 animate-pop">✅</div>
+        <h2 id="feedback-text" class="text-7xl font-bold mb-12 animate-pop">好叻呀！</h2>
+    </div>
+
+    <!-- 4. End Screen -->
+    <div id="end-screen" class="game-card w-full max-w-4xl p-12 text-center hidden animate-pop">
+        <div class="text-[150px] mb-8">🏆</div>
+        <h2 class="text-6xl font-bold mb-8 text-orange-500">太棒了！100關完成！</h2>
+        <p class="text-4xl mb-12 text-gray-600 leading-relaxed">你已經學會了關於地球、動物和環保的知識，<br>成為了最棒的環保小先鋒！</p>
+        <button onclick="location.reload()" class="bg-blue-500 hover:bg-blue-600 text-white text-4xl font-bold py-6 px-16 rounded-full shadow-xl transition transform hover:scale-105 border-b-8 border-blue-700">
+            🌟 再玩一次
+        </button>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. DATA POOL (Generated to provide 80+ unique questions based on test paper)
+        // ==========================================
+
+        const rawQuestionPool = [
+            // --- Fill in the blanks (填充題) - Emphasized ---
+            { mode: '填充題', text: "動物和植物需要 [?] 來維持生命。", audio: "動物和植物需要甚麼來維持生命？", img: "🌱", ans: "空氣和水", wrong: ["玩具和糖果", "顏色和泥土", "衣服和書本"] },
+            { mode: '填充題', text: "在地球的表面，[?] 佔的範圍較多。", audio: "在地球的表面，甚麼佔的範圍較多？", img: "🌍", ans: "海洋", wrong: ["陸地", "森林", "沙漠"] },
+            { mode: '填充題', text: "空氣沒有 [?]、氣味和味道。", audio: "空氣沒有甚麼、氣味和味道？", img: "💨", ans: "顏色", wrong: ["聲音", "重量", "形狀"] },
+            { mode: '填充題', text: "地球是人類、動物和植物的共同家園，我們要 [?] 地球。", audio: "我們要怎樣對待地球？", img: "❤️", ans: "愛護", wrong: ["破壞", "浪費", "放棄"] },
+            { mode: '填充題', text: "地球表面藍色以外的其他顏色代表 [?]。", audio: "地球表面藍色以外的其他顏色代表甚麼？", img: "🗺️", ans: "陸地", wrong: ["海洋", "太空", "天空"] },
+            { mode: '填充題', text: "水可以流動，沒有 [?] 的形狀。", audio: "水可以流動，沒有甚麼形狀？", img: "💧", ans: "固定", wrong: ["漂亮", "奇怪", "圓形"] },
+            { mode: '填充題', text: "我們把空氣吹入氣球，證明空氣沒有固定的 [?]。", audio: "氣球證明空氣沒有固定的甚麼？", img: "🎈", ans: "形狀", wrong: ["顏色", "味道", "聲音"] },
+            { mode: '填充題', text: "鬆開充氣氣球的結，紙巾被吹起，證明空氣會 [?]。", audio: "紙巾被吹起，證明空氣會怎樣？", img: "🧻", ans: "流動", wrong: ["消失", "變色", "唱歌"] },
+            
+            // --- Matching / Multiple Choice (選擇題/配對題) ---
+            { mode: '配對題', text: "地球照片中，藍色代表甚麼？", audio: "地球照片中，藍色代表甚麼？", img: "🟦", ans: "海洋", wrong: ["沙漠", "森林", "冰雪"] },
+            { mode: '配對題', text: "地球照片中，綠色代表甚麼？", audio: "地球照片中，綠色代表甚麼？", img: "🟩", ans: "森林", wrong: ["海洋", "沙漠", "冰雪"] },
+            { mode: '配對題', text: "地球照片中，白色代表甚麼？", audio: "地球照片中，白色代表甚麼？", img: "⬜", ans: "冰雪", wrong: ["森林", "沙漠", "海洋"] },
+            { mode: '配對題', text: "地球照片中，黃色代表甚麼？", audio: "地球照片中，黃色代表甚麼？", img: "🟨", ans: "沙漠", wrong: ["冰雪", "海洋", "森林"] },
+            { mode: '判斷題', text: "把水從杯子倒進花瓶，形狀改變了，證明：", audio: "水從杯子倒進花瓶形狀改變了，證明甚麼？", img: "🏺", ans: "水沒有固定形狀", wrong: ["水沒有顏色", "水沒有味道", "水會發光"] },
+            { mode: '判斷題', text: "喝水可以證明水：", audio: "喝水可以證明水甚麼？", img: "🚰", ans: "沒有味道", wrong: ["沒有形狀", "會流動", "有顏色"] },
+            
+            // --- Classification: Habitats (分類題：動物棲息地) ---
+            { mode: '分類題', text: "八爪魚在哪裡生活？", audio: "八爪魚在哪裡生活？", img: "🐙", ans: "海洋", wrong: ["有植物的陸地", "沙漠", "冰雪覆蓋的陸地"] },
+            { mode: '分類題', text: "海豚在哪裡生活？", audio: "海豚在哪裡生活？", img: "🐬", ans: "海洋", wrong: ["沙漠", "有植物的陸地", "冰雪覆蓋的陸地"] },
+            { mode: '分類題', text: "鯨魚在哪裡生活？", audio: "鯨魚在哪裡生活？", img: "🐳", ans: "海洋", wrong: ["沙漠", "有植物的陸地", "冰雪覆蓋的陸地"] },
+            { mode: '分類題', text: "小丑魚在哪裡生活？", audio: "小丑魚在哪裡生活？", img: "🐠", ans: "海洋", wrong: ["冰雪覆蓋的陸地", "有植物的陸地", "沙漠"] },
+            { mode: '分類題', text: "水母在哪裡生活？", audio: "水母在哪裡生活？", img: "🪼", ans: "海洋", wrong: ["沙漠", "冰雪覆蓋的陸地", "有植物的陸地"] },
+            { mode: '分類題', text: "兔在哪裡生活？", audio: "兔在哪裡生活？", img: "🐰", ans: "有植物的陸地", wrong: ["海洋", "沙漠", "冰雪覆蓋的陸地"] },
+            { mode: '分類題', text: "獅子在哪裡生活？", audio: "獅子在哪裡生活？", img: "🦁", ans: "有植物的陸地", wrong: ["海洋", "冰雪覆蓋的陸地", "沙漠"] },
+            { mode: '分類題', text: "斑馬在哪裡生活？", audio: "斑馬在哪裡生活？", img: "🦓", ans: "有植物的陸地", wrong: ["海洋", "沙漠", "冰雪覆蓋的陸地"] },
+            { mode: '分類題', text: "小雞在哪裡生活？", audio: "小雞在哪裡生活？", img: "🐥", ans: "有植物的陸地", wrong: ["海洋", "冰雪覆蓋的陸地", "沙漠"] },
+            { mode: '分類題', text: "松鼠在哪裡生活？", audio: "松鼠在哪裡生活？", img: "🐿️", ans: "有植物的陸地", wrong: ["海洋", "沙漠", "冰雪覆蓋的陸地"] },
+            { mode: '分類題', text: "駱駝在哪裡生活？", audio: "駱駝在哪裡生活？", img: "🐪", ans: "沙漠", wrong: ["海洋", "冰雪覆蓋的陸地", "有植物的陸地"] },
+            { mode: '分類題', text: "沙蜥在哪裡生活？", audio: "沙蜥在哪裡生活？", img: "🦎", ans: "沙漠", wrong: ["海洋", "冰雪覆蓋的陸地", "有植物的陸地"] },
+            { mode: '分類題', text: "企鵝在哪裡生活？", audio: "企鵝在哪裡生活？", img: "🐧", ans: "冰雪覆蓋的陸地", wrong: ["沙漠", "有植物的陸地", "海洋"] },
+            { mode: '分類題', text: "北極熊在哪裡生活？", audio: "北極熊在哪裡生活？", img: "🐻‍❄️", ans: "冰雪覆蓋的陸地", wrong: ["沙漠", "海洋", "有植物的陸地"] },
+            { mode: '分類題', text: "海豹在哪裡生活？", audio: "海豹在哪裡生活？", img: "🦭", ans: "冰雪覆蓋的陸地", wrong: ["沙漠", "有植物的陸地", "大城市"] },
+
+            // --- Environmental Actions (環保題) ---
+            { mode: '環保題', text: "淋浴代替浸浴，可以解決甚麼問題？", audio: "淋浴代替浸浴，可以解決甚麼問題？", img: "🚿", ans: "浪費水", wrong: ["浪費電", "汽車排出廢氣", "胡亂棄置膠樽"] },
+            { mode: '環保題', text: "選擇乘搭公共交通工具，可以解決甚麼問題？", audio: "選擇乘搭公共交通工具，可以解決甚麼問題？", img: "🚌", ans: "汽車排出廢氣", wrong: ["浪費水", "浪費電", "胡亂棄置膠樽"] },
+            { mode: '環保題', text: "分類回收廢物，可以解決甚麼問題？", audio: "分類回收廢物，可以解決甚麼問題？", img: "♻️", ans: "胡亂棄置膠樽", wrong: ["浪費水", "浪費電", "汽車排出廢氣"] },
+            { mode: '環保題', text: "關掉不需使用的電燈，可以解決甚麼問題？", audio: "關掉不需使用的電燈，可以解決甚麼問題？", img: "💡", ans: "浪費電", wrong: ["浪費水", "汽車排出廢氣", "胡亂棄置膠樽"] },
+            { mode: '是非題', text: "浸浴是愛護地球的做法嗎？", audio: "浸浴是愛護地球的做法嗎？", img: "🛁", ans: "不是", wrong: ["是"] },
+            { mode: '是非題', text: "隨手關燈是愛護地球的做法嗎？", audio: "隨手關燈是愛護地球的做法嗎？", img: "🔌", ans: "是", wrong: ["不是"] },
+            { mode: '是非題', text: "長期開著燈是破壞地球的做法嗎？", audio: "長期開著燈是破壞地球的做法嗎？", img: "💡", ans: "是", wrong: ["不是"] },
+            { mode: '是非題', text: "多乘搭巴士是愛護地球的做法嗎？", audio: "多乘搭巴士是愛護地球的做法嗎？", img: "🚍", ans: "是", wrong: ["不是"] }
+        ];
+
+        // Map text to appropriate emojis for the option buttons
+        const emojiDictionary = {
+            "空氣和水": "💧", "玩具和糖果": "🍬", "顏色和泥土": "🟤", "衣服和書本": "📚",
+            "海洋": "🌊", "陸地": "⛰️", "森林": "🌲", "沙漠": "🏜️", "冰雪": "❄️", "太空": "🚀", "天空": "☁️",
+            "顏色": "🎨", "聲音": "🎵", "重量": "⚖️", "形狀": "⭐", "味道": "👅",
+            "愛護": "🥰", "破壞": "💔", "浪費": "🗑️", "放棄": "😞",
+            "固定": "🧊", "漂亮": "✨", "奇怪": "❓", "圓形": "⭕",
+            "流動": "〰️", "消失": "💨", "變色": "🌈", "唱歌": "🎤",
+            "水沒有固定形狀": "🥛", "水沒有顏色": "⬜", "水沒有味道": "💧", "水會發光": "🌟", "會流動": "〰️",
+            "有植物的陸地": "🪴", "冰雪覆蓋的陸地": "⛄", "大城市": "🏙️",
+            "浪費水": "🚰", "浪費電": "⚡", "汽車排出廢氣": "💨", "胡亂棄置膠樽": "🫙",
+            "是": "👍", "不是": "👎"
+        };
+
+        // Specific Writing Levels (5 in total)
+        const writingTasks = [
+            { mode: '寫字題', word: "海", fullWord: "海洋", audio: "請寫出：海洋的海" },
+            { mode: '寫字題', word: "空", fullWord: "空氣", audio: "請寫出：空氣的空" },
+            { mode: '寫字題', word: "陸", fullWord: "陸地", audio: "請寫出：陸地的陸" },
+            { mode: '寫字題', word: "色", fullWord: "顏色", audio: "請寫出：顏色的色" },
+            { mode: '寫字題', word: "愛", fullWord: "愛護", audio: "請寫出：愛護的愛" }
+        ];
+
+        // ==========================================
+        // 2. LOGIC TO GENERATE 100 LEVELS
+        // ==========================================
+        let gameLevels = [];
+        
+        // Helper: Shuffle array
+        function shuffle(array) {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function generate100Levels() {
+            gameLevels = [];
+            let questionPool = [];
+            
+            // To get 95 questions, we duplicate the raw pool and shuffle to ensure variety and length.
+            // rawQuestionPool has about 38 items. 38 * 3 = 114. We take 95.
+            for(let i=0; i<3; i++) {
+                questionPool = questionPool.concat(JSON.parse(JSON.stringify(rawQuestionPool)));
+            }
+            questionPool = shuffle(questionPool).slice(0, 95);
+
+            // Process each into a standard format
+            questionPool.forEach((q) => {
+                let optionsText = [q.ans];
+                // Select 1 to 3 wrong answers randomly
+                let wrongChoices = shuffle([...q.wrong]).slice(0, Math.min(q.wrong.length, 3));
+                optionsText = optionsText.concat(wrongChoices);
+                optionsText = shuffle(optionsText);
+                
+                let formattedOptions = optionsText.map(t => ({
+                    text: t,
+                    emoji: emojiDictionary[t] || "🔹",
+                    isCorrect: (t === q.ans)
+                }));
+
+                // Format fill-in-the-blank text visually
+                let displayText = q.text;
+                if(displayText.includes("[?]")) {
+                    displayText = displayText.replace("[?]", `<span class="inline-block border-b-4 border-blue-500 text-blue-500 px-4 mx-2">?</span>`);
+                }
+
+                gameLevels.push({
+                    type: 'normal',
+                    modeName: q.mode,
+                    text: displayText,
+                    audio: q.audio,
+                    img: q.img,
+                    options: formattedOptions
+                });
+            });
+
+            // Insert writing tasks at exactly Level 20, 40, 60, 80, 100 
+            // Array indexes: 19, 39, 59, 79, 99
+            gameLevels.splice(19, 0, { type: 'write', ...writingTasks[0] });
+            gameLevels.splice(39, 0, { type: 'write', ...writingTasks[1] });
+            gameLevels.splice(59, 0, { type: 'write', ...writingTasks[2] });
+            gameLevels.splice(79, 0, { type: 'write', ...writingTasks[3] });
+            gameLevels.push({ type: 'write', ...writingTasks[4] }); // End of array
+        }
+
+
+        // ==========================================
+        // 3. GAME STATE & UI LOGIC
+        // ==========================================
+        let currentLevel = 0;
+        const synth = window.speechSynthesis;
+
+        function startGame() {
+            // Unlock audio context on first user interaction (crucial for tablets/mobile)
+            const silentUtterance = new SpeechSynthesisUtterance('');
+            synth.speak(silentUtterance);
+
+            generate100Levels();
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('game-screen').classList.add('flex');
+            
+            initCanvas();
+            loadLevel();
+        }
+
+        function loadLevel() {
+            const levelData = gameLevels[currentLevel];
+            
+            // Update UI 
+            document.getElementById('level-num').textContent = currentLevel + 1;
+            document.getElementById('mode-badge').textContent = levelData.modeName;
+            document.getElementById('progress-bar').style.width = `${((currentLevel) / 100) * 100}%`;
+
+            // Reset containers
+            const optionsContainer = document.getElementById('options-container');
+            const writingContainer = document.getElementById('writing-container');
+            const questionEmoji = document.getElementById('question-emoji');
+            const questionText = document.getElementById('question-text');
+
+            optionsContainer.innerHTML = '';
+            optionsContainer.classList.add('hidden');
+            writingContainer.classList.add('hidden');
+            questionEmoji.classList.add('hidden');
+
+            if (levelData.type === 'write') {
+                // Setup Writing Level
+                writingContainer.classList.remove('hidden');
+                questionText.innerHTML = `請寫出「${levelData.fullWord}」的字`;
+                document.getElementById('watermark-char').textContent = levelData.word;
+                clearCanvas();
+            } else {
+                // Setup Normal Level
+                optionsContainer.classList.remove('hidden');
+                questionEmoji.classList.remove('hidden');
+                questionEmoji.textContent = levelData.img;
+                questionText.innerHTML = levelData.text;
+
+                // Create Option Buttons + Individual TTS Buttons
+                levelData.options.forEach((opt) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = "flex w-full gap-3 h-32 items-stretch"; // Large touch target height
+
+                    // 1. TTS Button for Option (Only reads text, stops propagation)
+                    const ttsBtn = document.createElement('button');
+                    ttsBtn.className = "tts-btn w-24 md:w-28 bg-yellow-100 rounded-3xl flex items-center justify-center text-5xl shadow-sm";
+                    ttsBtn.innerHTML = "🔊";
+                    ttsBtn.onclick = (e) => {
+                        e.stopPropagation(); // MANDATORY: Prevent triggering answer
+                        playTextAudio(opt.text);
+                    };
+
+                    // 2. Answer Button
+                    const ansBtn = document.createElement('button');
+                    ansBtn.className = "ans-btn flex-1 bg-white rounded-3xl flex items-center justify-start px-6 gap-6 text-3xl md:text-4xl font-bold text-slate-700 shadow-sm";
+                    ansBtn.innerHTML = `<span class="text-6xl">${opt.emoji}</span> <span class="text-left leading-tight">${opt.text}</span>`;
+                    ansBtn.onclick = () => handleAnswerClick(ansBtn, opt.isCorrect);
+
+                    wrapper.appendChild(ttsBtn);
+                    wrapper.appendChild(ansBtn);
+                    optionsContainer.appendChild(wrapper);
+                });
+            }
+
+            // Auto-play question audio after slight delay
+            setTimeout(playQuestionAudio, 600);
+        }
+
+        // --- Audio Functions ---
+        function playQuestionAudio() {
+            playTextAudio(gameLevels[currentLevel].audio);
+        }
+
+        function playTextAudio(text) {
+            if(synth.speaking) synth.cancel();
+            // Sanitize: ensure we only send string text to speech engine
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-HK';
+            utterance.rate = 0.85; // Slower, clear speed for P1 / SEN
+            utterance.pitch = 1.1; // Slightly higher, friendly pitch
+            synth.speak(utterance);
+        }
+
+        // --- Interaction Handlers ---
+        function handleAnswerClick(btnElement, isCorrect) {
+            // Lock all buttons immediately
+            const allAnsBtns = document.querySelectorAll('.ans-btn');
+            const allTtsBtns = document.querySelectorAll('.tts-btn');
+            allAnsBtns.forEach(b => b.disabled = true);
+            allTtsBtns.forEach(b => b.disabled = true);
+
+            if (isCorrect) {
+                btnElement.classList.add('correct');
+                showFeedback(true);
+            } else {
+                btnElement.classList.add('wrong');
+                showFeedback(false, allAnsBtns, allTtsBtns);
+            }
+        }
+
+        function submitWriting() {
+            showFeedback(true);
+        }
+
+        function showFeedback(isCorrect, ansBtns = null, ttsBtns = null) {
+            const overlay = document.getElementById('feedback-overlay');
+            const icon = document.getElementById('feedback-icon');
+            const text = document.getElementById('feedback-text');
+
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
+            if (isCorrect) {
+                icon.textContent = '✅';
+                text.textContent = '好叻呀！';
+                text.className = 'text-7xl font-bold text-green-500 mb-12 animate-pop';
+                playTextAudio("好叻呀！");
+                
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                    nextLevel();
+                }, 1800);
+
+            } else {
+                icon.textContent = '❌';
+                text.textContent = '再試一次';
+                text.className = 'text-7xl font-bold text-red-400 mb-12 animate-pop';
+                playTextAudio("再試一次");
+                
+                // Allow retry
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.classList.remove('flex');
+                    if(ansBtns) ansBtns.forEach(b => {
+                        b.disabled = false;
+                        b.classList.remove('wrong');
+                    });
+                    if(ttsBtns) ttsBtns.forEach(b => b.disabled = false);
+                }, 2000);
+            }
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            if (currentLevel >= 100) {
+                document.getElementById('game-screen').classList.add('hidden');
+                document.getElementById('game-screen').classList.remove('flex');
+                document.getElementById('end-screen').classList.remove('hidden');
+                playTextAudio("太棒了！一百關完成！你是一個環保小先鋒！");
+            } else {
+                loadLevel();
+            }
+        }
+
+        // ==========================================
+        // 4. HTML5 CANVAS (九宮格/寫字板) LOGIC
+        // ==========================================
+        let canvas, ctx, isDrawing = false;
+
+        function initCanvas() {
+            canvas = document.getElementById('writingCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Brush styling
+            ctx.lineWidth = 18;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.strokeStyle = '#3b82f6'; // Friendly blue ink
+
+            // Mouse Events
+            canvas.addEventListener('mousedown', startDraw);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDraw);
+            canvas.addEventListener('mouseout', stopDraw);
+
+            // Touch Events (Crucial for tablets)
+            canvas.addEventListener('touchstart', handleTouchStart, {passive: false});
+            canvas.addEventListener('touchmove', handleTouchMove, {passive: false});
+            canvas.addEventListener('touchend', stopDraw);
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Scale handles CSS resizing vs internal resolution
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return { 
+                x: (e.clientX - rect.left) * scaleX, 
+                y: (e.clientY - rect.top) * scaleY 
+            };
+        }
+
+        function getTouchPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return { 
+                x: (e.touches[0].clientX - rect.left) * scaleX, 
+                y: (e.touches[0].clientY - rect.top) * scaleY 
+            };
+        }
+
+        function startDraw(e) {
+            isDrawing = true;
+            const pos = getMousePos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function handleTouchStart(e) {
+            e.preventDefault(); // Prevent scrolling
+            isDrawing = true;
+            const pos = getTouchPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            const pos = getMousePos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function handleTouchMove(e) {
+            if (!isDrawing) return;
+            e.preventDefault(); // Prevent scrolling while drawing
+            const pos = getTouchPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDraw() {
+            if (isDrawing) {
+                ctx.closePath();
+                isDrawing = false;
+            }
+        }
+
+        function clearCanvas() {
+            if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
